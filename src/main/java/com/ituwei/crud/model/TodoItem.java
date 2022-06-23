@@ -17,7 +17,7 @@ public class TodoItem {
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Getter
     @Setter
-    private long id;
+    private int id;
     @Getter
     @Setter
     @NotBlank(message = "Description is required")
@@ -37,6 +37,13 @@ public class TodoItem {
         this.complete = false;
         this.createdDate = createdDate;
         this.modifiedDate = modifiedDate;
+    }
+
+    public TodoItem(final String description) {
+        this.description = description;
+    }
+
+    public TodoItem(int i, String s, Boolean s1) {
     }
 
     @Override

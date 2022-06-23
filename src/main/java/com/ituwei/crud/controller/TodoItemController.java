@@ -5,56 +5,78 @@ import com.ituwei.crud.repo.TodoItemRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.servlet.ModelAndView;
-
-import javax.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.*;
 
-@Controller
+@RestController
 public class TodoItemController {
     private final Logger logger = LoggerFactory.getLogger(TodoItemController.class);
 
     @Autowired
     private TodoItemRepo todoItemRepository;
 
-    @GetMapping("/")
-    public ModelAndView index() {
-        logger.info("request to GET index");
-        ModelAndView modelAndView = new ModelAndView("index");
-        modelAndView.addObject("todoItems", todoItemRepository.findAll());
-        modelAndView.addObject("today", Instant.now().atZone(ZoneId.systemDefault()).toLocalDate().getDayOfWeek());
-        return modelAndView;
+    public TodoItemController() {
     }
 
-    @PostMapping("/todo")
-    public String createTodoItem(@Valid TodoItem todoItem, BindingResult result, Model model) {
-        if (result.hasErrors()) {
-            return "add-todo-item";
-        }
-
-        todoItem.setCreatedDate(Instant.now());
-        todoItem.setModifiedDate(Instant.now());
-        todoItemRepository.save(todoItem);
-        return "redirect:/";
+    @RequestMapping("/home")
+    public Map<String, Object> home() {
+        logger.info("Request '/home' path.");
+        final Map<String, Object> model = new HashMap<String, Object>();
+        model.put("todoItems", todoItemRepository.findAll());
+        model.put("today", Instant.now().atZone(ZoneId.systemDefault()).toLocalDate().getDayOfWeek());
+        return model;
     }
 
-    @PutMapping("/todo/{id}")
-    public String updateTodoItem(@PathVariable("id") long id, @Valid TodoItem todoItem, BindingResult result, Model model) {
-        if (result.hasErrors()) {
-            todoItem.setId(id);
-            return "update-todo-item";
+    @PostMapping("/todolist")
+    public ResponseEntity<String> createTodoItem(@RequestBody TodoItem item) {
+        logger.info("POST request access '/todolist' path with item: {}", item);
+        try {
+            item.setId(item.getId());
+            item.setDescription(item.getDescription());
+            item.setComplete(item.getComplete());
+            item.setCreatedDate(Instant.now());
+            item.setModifiedDate(Instant.now());
+            todoItemRepository.save(item);
+            return new ResponseEntity<>("Entity created", HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Entity creation failed", HttpStatus.CONFLICT);
+        }
+    }
+
+    @PutMapping("/todolist/{id}")
+    public ResponseEntity<String> updateTodoItem(@PathVariable("id") Long id,@RequestBody TodoItem item) {
+        logger.info("PUT request access '/api/todolist' path with item {}", item);
+        try {
+            Optional<TodoItem> todoItem = todoItemRepository.findById(item.getId());
+            if (todoItem.isPresent()) {
+                item.setModifiedDate(Instant.now());
+                todoItemRepository.save(item);
+                return new ResponseEntity<>("Entity updated", HttpStatus.OK);
+            }
+            return new ResponseEntity<>("Not found the entity", HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            logger.error("Delete and save errors: ", e);
+            return new ResponseEntity<>("Entity updating failed", HttpStatus.NOT_FOUND);
+        }
+    }
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<String> deleteTodoItem(@PathVariable("id") int id) {
+        logger.info("DELETE request access '/api/todolist/{}' path.", id);
+        try {
+            Optional<TodoItem> todoItem = todoItemRepository.findById(id);
+            if (todoItem.isPresent()) {
+                todoItemRepository.deleteById(id);
+                return new ResponseEntity<>("Entity deleted", HttpStatus.OK);
+            }
+            return new ResponseEntity<>("Not found the entity", HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            logger.error("Delete errors: ", e);
+            return new ResponseEntity<>("Entity deletion failed", HttpStatus.NOT_FOUND);
         }
 
-        todoItem.setModifiedDate(Instant.now());
-        todoItemRepository.save(todoItem);
-        return "redirect:/";
     }
 }
